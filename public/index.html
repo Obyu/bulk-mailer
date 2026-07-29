@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bulk Email Sender - MNC University Style</title>
+  <!-- Google Fonts: Outfit for body, Inter for controls -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <!-- SMTPJS for Client-Side Direct Sending if Backend is Offline -->
+  <script src="https://smtpjs.com/v3/smtp.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="icon-glow">
+          <i class="fa-solid fa-paper-plane"></i>
+        </div>
+        <div>
+          <h1>MNCU Bulk Mailer</h1>
+          <p>Kirim Email Massal dengan Template Terverifikasi</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="theme-toggle" class="btn-icon" title="Toggle Theme">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <span class="badge status-badge offline" id="server-status">
+          <span class="dot"></span> Server Offline
+        </span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="app-grid">
+      
+      <!-- Left Column: SMTP Configurations -->
+      <section class="grid-col smtp-section">
+        <div class="glass-card">
+          <div class="card-header">
+            <i class="fa-solid fa-server card-icon"></i>
+            <h2>Konfigurasi SMTP</h2>
+          </div>
+          
+          <form id="smtp-form" class="card-body">
+            <div class="form-group">
+              <label for="smtp-host">SMTP Host</label>
+              <input type="text" id="smtp-host" placeholder="smtp.gmail.com" value="smtp.gmail.com" required>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group col-8">
+                <label for="smtp-port">Port</label>
+                <input type="number" id="smtp-port" placeholder="587" value="587" required>
+              </div>
+              <div class="form-group col-4 checkbox-group">
+                <label for="smtp-secure">SSL/TLS</label>
+                <label class="switch">
+                  <input type="checkbox" id="smtp-secure">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="smtp-user">Email Pengirim (Username)</label>
+              <input type="email" id="smtp-user" placeholder="nama@gmail.com" required>
+            </div>
+
+            <div class="form-group">
+              <label for="smtp-pass">Password / App Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="smtp-pass" placeholder="••••••••••••••••" required>
+                <button type="button" class="btn-toggle-password" id="toggle-smtp-pass">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+              <small class="help-text">
+                <i class="fa-solid fa-circle-info"></i> Gunakan <strong>App Password</strong> jika menggunakan Gmail.
+              </small>
+            </div>
+
+            <div class="form-group">
+              <label for="smtp-from-name">Nama Pengirim (Sender Name)</label>
+              <input type="text" id="smtp-from-name" placeholder="MNC University" value="MNC University">
+            </div>
+
+            <div class="form-actions">
+              <button type="button" id="btn-save-smtp" class="btn btn-secondary">
+                <i class="fa-solid fa-floppy-disk"></i> Simpan
+              </button>
+              <button type="button" id="btn-test-smtp" class="btn btn-primary">
+                <i class="fa-solid fa-wifi"></i> Tes Koneksi
+              </button>
+            </div>
+            <div id="smtp-test-message" class="status-msg hide"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Middle Column: Recipients & Template Composer -->
+      <section class="grid-col composer-section">
+        <div class="glass-card full-height">
+          <div class="tab-header">
+            <button class="tab-link active" data-tab="tab-recipients">
+              <i class="fa-solid fa-users"></i> Penerima
+            </button>
+            <button class="tab-link" data-tab="tab-template">
+              <i class="fa-solid fa-envelope-open-text"></i> Template Email
+            </button>
+          </div>
+
+          <div class="card-body tab-content-wrapper">
+            <!-- Tab: Recipients -->
+            <div id="tab-recipients" class="tab-content active">
+              <div class="recipient-controls">
+                <div class="btn-group">
+                  <label for="csv-file" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-file-import"></i> Upload CSV
+                  </label>
+                  <input type="file" id="csv-file" accept=".csv,.txt" style="display: none;">
+                  <button type="button" id="btn-clear-recipients" class="btn btn-danger-outline btn-sm">
+                    <i class="fa-solid fa-trash-can"></i> Hapus Semua
+                  </button>
+                </div>
+                <div class="quick-add">
+                  <input type="text" id="quick-nama" placeholder="Nama Lengkap">
+                  <input type="email" id="quick-email" placeholder="email@domain.com">
+                  <button type="button" id="btn-quick-add" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Tambah
+                  </button>
+                </div>
+              </div>
+
+              <!-- Recipient Table Container -->
+              <div class="table-container">
+                <table class="recipient-table" id="recipient-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 50px;">No</th>
+                      <th>Nama Lengkap</th>
+                      <th>Email</th>
+                      <th>Program/Keterangan</th>
+                      <th style="width: 80px; text-align: center;">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recipient-list-body">
+                    <!-- Dynamic rows here -->
+                  </tbody>
+                </table>
+                <div class="empty-state" id="table-empty-state">
+                  <i class="fa-solid fa-users-slash"></i>
+                  <p>Belum ada data penerima. Tambahkan secara manual atau upload file CSV/TXT.</p>
+                  <small>Format CSV: <code>Nama, Email, Program</code> (tanpa header juga boleh)</small>
+                </div>
+              </div>
+
+              <!-- CSV Paste / Bulk Import Area -->
+              <div class="bulk-paste-area">
+                <label for="bulk-paste-text">Atau Paste Data Excel / Teks (Satu baris per data, pisahkan dengan koma atau tab):</label>
+                <textarea id="bulk-paste-text" placeholder="Siti mutia hanum, sitimutia@gmail.com, MNCU Future Leader Scholarship&#10;Budi Santoso, budisantoso@gmail.com, MNCU Future Leader Scholarship"></textarea>
+                <button type="button" id="btn-import-paste" class="btn btn-secondary btn-sm">
+                  <i class="fa-solid fa-arrow-down-short-wide"></i> Import Teks
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab: Template -->
+            <div id="tab-template" class="tab-content">
+              <div class="form-group">
+                <label for="email-subject">Subjek Email</label>
+                <input type="text" id="email-subject" placeholder="Selamat! Pendaftaran Terverifikasi" value="Selamat! Pendaftaran Terverifikasi">
+              </div>
+
+              <div class="form-group">
+                <label for="email-program">Nama Program Beasiswa / Acara</label>
+                <input type="text" id="email-program" placeholder="Young Manager Excellent Scholarship" value="Young Manager Excellent Scholarship">
+              </div>
+
+              <div class="form-group">
+                <label for="email-header-title">Judul Email (Kop)</label>
+                <input type="text" id="email-header-title" placeholder="Selamat! Pendaftaran Terverifikasi" value="Selamat! Pendaftaran Terverifikasi">
+              </div>
+
+              <div class="form-group">
+                <label for="attachment-file">Lampiran File (Contoh: Sertifikat PDF)</label>
+                <div class="file-uploader-wrapper">
+                  <label for="attachment-file-input" class="file-dropzone" id="dropzone">
+                    <i class="fa-solid fa-file-pdf icon-upload"></i>
+                    <span id="upload-status-text">Pilih atau Seret File PDF di Sini</span>
+                    <input type="file" id="attachment-file-input" accept=".pdf,.doc,.docx,.png,.jpg" style="display: none;">
+                  </label>
+                  <button type="button" id="btn-remove-attachment" class="btn-remove-file hide">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Automatic Certificate Generation Toggle -->
+              <div class="form-group cert-toggle-group">
+                <div class="toggle-row">
+                  <label for="auto-cert" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <i class="fa-solid fa-graduation-cap" style="color: var(--primary)"></i> <strong>Kirim Sertifikat Otomatis</strong>
+                  </label>
+                  <label class="switch">
+                    <input type="checkbox" id="auto-cert">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <small class="help-text">
+                  <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--warning)"></i> Jika aktif, sertifikat PDF kustom dengan nama masing-masing penerima akan di-generate dan dilampirkan otomatis.
+                </small>
+
+                <!-- Collapsible Settings Panel for Custom Certificate Template -->
+                <div id="cert-settings-panel" class="cert-settings-panel hide">
+                  <div class="form-group">
+                    <label for="cert-bg-input">Unggah Desain Background Sertifikat (Blanko Gambar PNG/JPG)</label>
+                    <input type="file" id="cert-bg-input" accept="image/*" class="btn-secondary" style="padding: 6px 12px; font-size: 12px;">
+                  </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group col-6">
+                      <label for="cert-name-y">Posisi Vertikal Nama (Y)</label>
+                      <input type="range" id="cert-name-y" min="50" max="650" value="320">
+                      <span id="cert-name-y-val" class="slider-val">320px</span>
+                    </div>
+                    <div class="form-group col-6">
+                      <label for="cert-name-size">Ukuran Huruf Nama</label>
+                      <input type="range" id="cert-name-size" min="16" max="60" value="32">
+                      <span id="cert-name-size-val" class="slider-val">32px</span>
+                    </div>
+                  </div>
+
+                  <div class="form-row" style="align-items: flex-end;">
+                    <div class="form-group col-6">
+                      <label for="cert-name-color">Warna Huruf Nama</label>
+                      <input type="color" id="cert-name-color" value="#0f3080" style="padding:0; height:32px;">
+                    </div>
+                    <div class="form-group col-6">
+                      <button type="button" id="btn-preview-cert" class="btn btn-secondary btn-sm" style="width: 100%; height: 32px; padding: 4px;">
+                        <i class="fa-solid fa-image"></i> Pratinjau Sertifikat
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="wa-link">Link Group WhatsApp (Opsional)</label>
+                <input type="text" id="wa-link" placeholder="Masukkan link group (Kosongkan jika tidak ada tombol WhatsApp)" value="">
+              </div>
+
+              <div class="form-group">
+                <div class="label-with-variables">
+                  <label for="email-body">Isi Email (Teks Biasa)</label>
+                  <div class="variable-badges">
+                    <span class="var-badge" data-var="{{nama}}">{{nama}}</span>
+                    <span class="var-badge" data-var="{{program}}">{{program}}</span>
+                    <span class="var-badge" data-var="{{email}}">{{email}}</span>
+                  </div>
+                </div>
+                <textarea id="email-body" rows="10"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="email-signature">Teks Penutup (Tanda Tangan)</label>
+                <textarea id="email-signature" rows="2" placeholder="Best Regards,&#10;Panitia {{program}}">Best Regards,&#10;Panitia {{program}}</textarea>
+              </div>
+
+              <div class="template-presets">
+                <span class="preset-label">Gunakan Template:</span>
+                <button type="button" class="btn-preset active" id="btn-preset-mnc">MNCU Scholarship</button>
+                <button type="button" class="btn-preset" id="btn-preset-simple">Simple Professional</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Live Preview & Sending Console -->
+      <section class="grid-col preview-section">
+        <!-- Live Preview -->
+        <div class="glass-card preview-card">
+          <div class="card-header">
+            <i class="fa-solid fa-eye card-icon"></i>
+            <h2>Live Email Preview</h2>
+            <div class="preview-recipient-selector">
+              <button id="prev-preview" class="btn-icon btn-xs" disabled><i class="fa-solid fa-chevron-left"></i></button>
+              <span id="preview-index">0 / 0</span>
+              <button id="next-preview" class="btn-icon btn-xs" disabled><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
+          
+          <div class="card-body preview-scrollable">
+            <div class="email-envelope-preview">
+              <div class="env-row"><strong>Dari:</strong> <span id="preview-env-from">MNC University &lt;pengirim@domain.com&gt;</span></div>
+              <div class="env-row"><strong>Kepada:</strong> <span id="preview-env-to">penerima@domain.com</span></div>
+              <div class="env-row"><strong>Subjek:</strong> <span id="preview-env-subject">Selamat! Pendaftaran Terverifikasi</span></div>
+            </div>
+            
+            <div class="email-render-container" id="email-render-frame">
+              <!-- Replicated design from user image will be injected here dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Sending Engine Control -->
+        <div class="glass-card sending-card">
+          <div class="card-header">
+            <i class="fa-solid fa-circle-play card-icon"></i>
+            <h2>Kontrol Pengiriman</h2>
+            <div class="sending-delay-wrapper">
+              <label for="send-delay">Jeda (detik):</label>
+              <input type="number" id="send-delay" value="2" min="1" max="60">
+            </div>
+          </div>
+          
+          <div class="card-body">
+            <div class="sending-progress-stats">
+              <div class="stat-box">
+                <span class="stat-val" id="stat-total">0</span>
+                <span class="stat-lbl">Total</span>
+              </div>
+              <div class="stat-box success">
+                <span class="stat-val" id="stat-success">0</span>
+                <span class="stat-lbl">Terkirim</span>
+              </div>
+              <div class="stat-box danger">
+                <span class="stat-val" id="stat-failed">0</span>
+                <span class="stat-lbl">Gagal</span>
+              </div>
+              <div class="stat-box info">
+                <span class="stat-val" id="stat-remaining">0</span>
+                <span class="stat-lbl">Sisa</span>
+              </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" id="progress-bar" style="width: 0%;"></div>
+              <span class="progress-text" id="progress-text">0%</span>
+            </div>
+
+            <!-- Sending Control Buttons -->
+            <div class="sending-controls">
+              <button type="button" id="btn-start-sending" class="btn btn-success" disabled>
+                <i class="fa-solid fa-paper-plane"></i> Mulai Pengiriman
+              </button>
+              <button type="button" id="btn-pause-sending" class="btn btn-warning hide">
+                <i class="fa-solid fa-pause"></i> Pause
+              </button>
+              <button type="button" id="btn-stop-sending" class="btn btn-danger" disabled>
+                <i class="fa-solid fa-square-term"></i> Reset
+              </button>
+            </div>
+
+            <!-- Real-time Console Log -->
+            <div class="console-log-header">
+              <h3>Log Pengiriman</h3>
+              <button type="button" id="btn-clear-logs" class="btn-text-only">Bersihkan Log</button>
+            </div>
+            <div class="console-log-container" id="console-logs">
+              <div class="log-row info">Sistem siap. Silakan tambahkan penerima dan konfigurasikan SMTP Anda.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+  <!-- Certificate Preview Modal -->
+  <div id="cert-modal" class="modal-overlay hide">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-image" style="color: var(--primary)"></i> Pratinjau Desain Sertifikat
+        </h3>
+        <button type="button" class="btn-close-modal" id="btn-close-cert-modal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; overflow-x: auto;">
+        <canvas id="cert-preview-canvas" style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); max-width: 100%; width: 750px; height: auto; box-shadow: var(--shadow-md); background-color: white;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- jsPDF for Dynamic PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- SMTPJS for Client-side SMTP Fallback -->
+  <script src="https://smtpjs.com/v3/smtp.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
